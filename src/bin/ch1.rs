@@ -47,36 +47,59 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Connected to DMX adapter. Testing CH1 (Shutter) features...");
 
+
     // DMX universe (512 bytes, initialized to 0)
     let mut dmx_universe = vec![0u8; 512];
-// Set DMX address to 1
-dmx_universe[1] = 0; // CH2: Address 1 (0 maps to 1 in some implementations)
-port.write_all(&dmx_universe)?;
-println!("Set DMX address to 1");
+    // Set DMX address to 1
+    dmx_universe[1] = 0;
+    // Send initial frame with break and start code
+    port.set_break()?;
+    std::thread::sleep(Duration::from_micros(100));
+    port.clear_break()?;
+    let mut frame = vec![0x00];
+    frame.extend_from_slice(&dmx_universe);
+    port.write_all(&frame)?;
+    println!("Set DMX address to 1");
 
-// Test CH1 and CH4: Toggle shutter and activate built-in visual
-for _ in 0..5 { // Repeat 5 times
-    // Turn laser off (CH1 = 0)
-    dmx_universe[0] = 0; // CH1 is index 0 in 1-based DMX addressing
-    dmx_universe[3] = 0; // CH4: Reset pattern
-    port.write_all(&dmx_universe)?;
-    println!("CH1 set to 0 (Off), CH4 set to 0 (No Pattern)");
-    std::thread::sleep(Duration::from_secs(2));
+    // Test CH1 and CH4: Toggle shutter and activate built-in visual
+    for _ in 0..5 {
+        // Turn laser off (CH1 = 0)
+        dmx_universe[0] = 0;
+        dmx_universe[3] = 0;
+        port.set_break()?;
+        std::thread::sleep(Duration::from_micros(100));
+        port.clear_break()?;
+        let mut frame = vec![0x00];
+        frame.extend_from_slice(&dmx_universe);
+        port.write_all(&frame)?;
+        println!("CH1 set to 0 (Off), CH4 set to 0 (No Pattern)");
+        std::thread::sleep(Duration::from_secs(2));
 
-    // Turn laser on with built-in Christmas graphic (CH4 = 100)
-    dmx_universe[0] = 255; // CH1: Shutter on
-    dmx_universe[3] = 100; // CH4: Christmas graphic (example value)
-    if let Err(e) = port.write_all(&dmx_universe) {
-        println!("Write error: {}. Check connection or address.", e);
-    } else {
-        println!("CH1 set to 255 (On), CH4 set to 100 (Christmas Graphic)");
+        // Turn laser on with built-in Christmas graphic (CH4 = 100)
+        dmx_universe[0] = 255;
+        dmx_universe[3] = 100;
+        port.set_break()?;
+        std::thread::sleep(Duration::from_micros(100));
+        port.clear_break()?;
+        let mut frame = vec![0x00];
+        frame.extend_from_slice(&dmx_universe);
+        if let Err(e) = port.write_all(&frame) {
+            println!("Write error: {}. Check connection or address.", e);
+        } else {
+            println!("CH1 set to 255 (On), CH4 set to 100 (Christmas Graphic)");
+        }
+        std::thread::sleep(Duration::from_secs(3));
     }
-    std::thread::sleep(Duration::from_secs(3)); // Increased delay for pattern display
-}
 
     // Clean up: Turn off laser
     dmx_universe[0] = 0;
-    port.write_all(&dmx_universe)?;
+    dmx_universe[3] = 0;
+    port.set_break()?;
+    std::thread::sleep(Duration::from_micros(100));
+    port.clear_break()?;
+    let mut frame = vec![0x00];
+    frame.extend_from_slice(&dmx_universe);
+    port.write_all(&frame)?;
     println!("Test complete. Laser turned off.");
 
     Ok(())
